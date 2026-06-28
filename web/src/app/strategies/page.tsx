@@ -122,6 +122,20 @@ const USE_NOTE: Record<StratKey, UseInfo> = {
   },
 };
 
+const SUMMARY: Record<StratKey, string> = {
+  longCall: "apostar a una suba fuerte con riesgo limitado al premium",
+  longPut: "apostar a una caída, o asegurar una posición larga",
+  coveredCall: "generar income sobre una acción que ya tenés, en mercado lateral",
+  protectivePut: "ponerle un piso a una acción que tenés, sin resignar el alza",
+  bullCall: "una suba moderada, con costo y riesgo capados",
+  bearPut: "una caída moderada, con costo y riesgo capados",
+  straddle: "un movimiento grande sin saber la dirección (vol)",
+  strangle: "un movimiento muy grande, más barato que el straddle",
+  butterfly: "que el subyacente quede clavado cerca de un precio (vol baja)",
+  ironCondor: "cobrar prima si el subyacente queda dentro de un rango",
+  collar: "proteger ganancias de una acción casi sin costo",
+};
+
 const LEG_LABEL: Record<Leg["optionType"], string> = {
   call: "Call",
   put: "Put",
@@ -292,6 +306,26 @@ export default function StrategiesLab() {
           </>
         }
       >
+        <div className="panel glow-brass flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <div className="eyebrow mb-1 text-brass">Sirve para</div>
+            <p className="font-display text-[19px] font-medium leading-snug text-text">
+              {SUMMARY[strat]}.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <span className="chip">
+              <span className="text-dim">visión</span>&nbsp;<span className="text-text">{USE_NOTE[strat].view}</span>
+            </span>
+            <span className="chip">
+              <span className="text-dim">flujo</span>&nbsp;
+              <span className={USE_NOTE[strat].cost.toLowerCase().includes("crédito") ? "text-gain" : "text-text"}>
+                {USE_NOTE[strat].cost}
+              </span>
+            </span>
+          </div>
+        </div>
+
         <Panel title="Diagrama de payoff">
           <LineChart
             series={series}
