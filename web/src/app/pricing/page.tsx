@@ -9,6 +9,7 @@ import { Formula } from "@/components/ui/Formula";
 import { LineChart, type Series } from "@/components/charts/LineChart";
 import { GreekSurface } from "@/components/three/GreekSurface";
 import { GreekRelations } from "@/components/GreekRelations";
+import { GreekEffects } from "@/components/GreekEffects";
 import {
   bsPriceBoth, allGreeks, greekByName, timeValue, intrinsic, linspace,
   type GreekName, type OptionType,
@@ -156,6 +157,10 @@ export default function PricingLab() {
             </div>
           )}
           <p className="mt-3 text-[13px] leading-relaxed text-muted">{METRIC_NOTE[metric]}</p>
+        </Panel>
+
+        <Panel title="¿Qué pasa si cambia un parámetro?">
+          <GreekEffects S={S} K={K} T={T} r={r} sigma={sigma} q={q} optionType={type} price={price} g={g} />
         </Panel>
 
         <Panel title="Relaciones entre las griegas">
