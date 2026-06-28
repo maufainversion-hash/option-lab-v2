@@ -136,11 +136,44 @@ const SUMMARY: Record<StratKey, string> = {
   collar: "proteger ganancias de una acción casi sin costo",
 };
 
+type RiskKind = "Limitada" | "Ilimitada";
+const RISK: Record<StratKey, { profit: RiskKind; loss: RiskKind }> = {
+  longCall: { profit: "Ilimitada", loss: "Limitada" },
+  longPut: { profit: "Limitada", loss: "Limitada" },
+  coveredCall: { profit: "Limitada", loss: "Limitada" },
+  protectivePut: { profit: "Ilimitada", loss: "Limitada" },
+  bullCall: { profit: "Limitada", loss: "Limitada" },
+  bearPut: { profit: "Limitada", loss: "Limitada" },
+  straddle: { profit: "Ilimitada", loss: "Limitada" },
+  strangle: { profit: "Ilimitada", loss: "Limitada" },
+  butterfly: { profit: "Limitada", loss: "Limitada" },
+  ironCondor: { profit: "Limitada", loss: "Limitada" },
+  collar: { profit: "Limitada", loss: "Limitada" },
+};
+
 const LEG_LABEL: Record<Leg["optionType"], string> = {
   call: "Call",
   put: "Put",
   stock: "Acción",
 };
+
+function RiskPill({ label, value, tone }: { label: string; value: string; tone: "good" | "bad" | "neutral" }) {
+  const c =
+    tone === "good"
+      ? { border: "rgba(63,207,142,0.4)", bg: "rgba(63,207,142,0.10)", fg: "#3fcf8e" }
+      : tone === "bad"
+        ? { border: "rgba(240,97,109,0.4)", bg: "rgba(240,97,109,0.10)", fg: "#f0616d" }
+        : { border: "var(--color-line-2)", bg: "var(--color-ink-2)", fg: "var(--color-text)" };
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-medium"
+      style={{ borderColor: c.border, background: c.bg, color: c.fg }}
+    >
+      <span className="text-dim">{label}</span>
+      {value}
+    </span>
+  );
+}
 
 export default function StrategiesLab() {
   const [S, setS] = useState(100);
@@ -245,7 +278,6 @@ export default function StrategiesLab() {
 
   const money = (v: number) => `$${v.toFixed(2)}`;
   const signedMoney = (v: number) => `${v >= 0 ? "+" : "−"}$${Math.abs(v).toFixed(2)}`;
-  const finite = (v: number) => Number.isFinite(v);
 
   return (
     <div className="mx-auto max-w-[1400px] px-5 py-8 sm:px-8">
@@ -313,16 +345,30 @@ export default function StrategiesLab() {
               {SUMMARY[strat]}.
             </p>
           </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
-            <span className="chip">
-              <span className="text-dim">visión</span>&nbsp;<span className="text-text">{USE_NOTE[strat].view}</span>
-            </span>
-            <span className="chip">
-              <span className="text-dim">flujo</span>&nbsp;
-              <span className={USE_NOTE[strat].cost.toLowerCase().includes("crédito") ? "text-gain" : "text-text"}>
-                {USE_NOTE[strat].cost}
+          <div className="flex shrink-0 flex-col gap-2">
+            <div className="flex flex-wrap gap-2">
+              <RiskPill
+                label="Ganancia"
+                value={RISK[strat].profit}
+                tone={RISK[strat].profit === "Ilimitada" ? "good" : "neutral"}
+              />
+              <RiskPill
+                label="Pérdida"
+                value={RISK[strat].loss}
+                tone={RISK[strat].loss === "Ilimitada" ? "bad" : "good"}
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <span className="chip">
+                <span className="text-dim">visión</span>&nbsp;<span className="text-text">{USE_NOTE[strat].view}</span>
               </span>
-            </span>
+              <span className="chip">
+                <span className="text-dim">flujo</span>&nbsp;
+                <span className={USE_NOTE[strat].cost.toLowerCase().includes("crédito") ? "text-gain" : "text-text"}>
+                  {USE_NOTE[strat].cost}
+                </span>
+              </span>
+            </div>
           </div>
         </div>
 
@@ -349,10 +395,16 @@ export default function StrategiesLab() {
             />
             <Stat
               label="Máx ganancia"
-              value={finite(maxProfit) ? money(maxProfit) : "∞"}
+              value={RISK[strat].profit === "Ilimitada" ? "Ilimitada" : money(maxProfit)}
               tone="gain"
+              hint={RISK[strat].profit === "Ilimitada" ? "sin techo" : "acotada"}
             />
-            <Stat label="Máx pérdida" value={money(maxLoss)} tone="loss" />
+            <Stat
+              label="Máx pérdida"
+              value={RISK[strat].loss === "Ilimitada" ? "Ilimitada" : money(maxLoss)}
+              tone="loss"
+              hint={RISK[strat].loss === "Ilimitada" ? "sin piso" : "acotada"}
+            />
             <Stat label="Patas" value={String(strategy.legs.length)} tone="cyan" />
           </div>
           <p className="mt-3 text-[13px] leading-relaxed text-muted">{strategy.description}</p>
