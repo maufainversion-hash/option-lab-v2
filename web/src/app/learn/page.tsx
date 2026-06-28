@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { LabHeader, Panel } from "@/components/LabLayout";
 import { Formula } from "@/components/ui/Formula";
+import { UNITS, GROUPS } from "@/lib/curriculum";
 
 export const metadata = {
   title: "Teoría & Formulario · Option Lab",
@@ -113,6 +114,35 @@ export default function LearnPage() {
         }
         subtitle="Cada fórmula del cronograma, faithful a Hull y lista para el parcial. Mapeá el capítulo a su módulo, repasá la teoría y después abrí el lab para verla viva."
       />
+
+      {/* ── Unidades de teoría ─────────────────────────────────── */}
+      <section className="mb-12 animate-rise">
+        <div className="mb-4 flex items-center gap-3">
+          <span className="eyebrow">unidades · apuntes completos</span>
+          <span className="inline-block h-px flex-1 bg-line" />
+        </div>
+        {GROUPS.map((g) => (
+          <div key={g} className="mb-6">
+            <div className="eyebrow mb-2.5 text-[10px] text-dim">{g}</div>
+            <div className="grid gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
+              {UNITS.filter((u) => u.group === g).map((u) => (
+                <Link
+                  key={u.slug}
+                  href={`/learn/${u.slug}`}
+                  className="group bg-ink-1 p-4 transition-colors hover:bg-ink-2"
+                >
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="chip text-[10px]">{u.hull}</span>
+                    <span className="text-brass opacity-0 transition-opacity group-hover:opacity-100">→</span>
+                  </div>
+                  <div className="font-display text-[16px] font-medium text-text">{u.title}</div>
+                  <p className="mt-1 text-[12.5px] leading-snug text-muted">{u.blurb}</p>
+                </Link>
+              ))}
+            </div>
+          </div>
+        ))}
+      </section>
 
       {/* ── Mapa Hull → módulo ─────────────────────────────────── */}
       <section className="mb-12 animate-rise">

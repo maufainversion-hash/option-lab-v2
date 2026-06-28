@@ -8,6 +8,7 @@ import { Stat } from "@/components/ui/Stat";
 import { Formula } from "@/components/ui/Formula";
 import { LineChart, type Series } from "@/components/charts/LineChart";
 import { GreekSurface } from "@/components/three/GreekSurface";
+import { GreekRelations } from "@/components/GreekRelations";
 import {
   bsPriceBoth, allGreeks, greekByName, timeValue, intrinsic, linspace,
   type GreekName, type OptionType,
@@ -155,6 +156,15 @@ export default function PricingLab() {
             </div>
           )}
           <p className="mt-3 text-[13px] leading-relaxed text-muted">{METRIC_NOTE[metric]}</p>
+        </Panel>
+
+        <Panel title="Relaciones entre las griegas">
+          <p className="mb-4 max-w-2xl text-[13.5px] leading-relaxed text-muted">
+            Las griegas no son independientes: <span className="text-text">gamma</span> es la que conecta a{" "}
+            <span className="text-brass">delta</span> con <span className="text-loss">theta</span>. Acá ves cómo se
+            mueven en conjunto y qué le pasa a cada una cuando cambia delta.
+          </p>
+          <GreekRelations K={K} T={T} r={r} sigma={sigma} q={q} optionType={type} spot={S} />
         </Panel>
 
         <Panel title="La fórmula">
