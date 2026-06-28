@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { UnitShell } from "@/components/learn/UnitShell";
+import { PayoffByRange } from "@/components/learn/PayoffByRange";
 import {
   Prose,
   Lead,
@@ -35,6 +36,24 @@ export default function Page() {
           </Link>
           .
         </p>
+
+        <Section id="machete" title="Payoff por tramo — el machete">
+          <p>
+            La pregunta clásica del parcial: dado dónde termine el subyacente{" "}
+            <K tex={"S_T"} />, ¿cuánto paga cada pata y cuál es el total? Los{" "}
+            <span className="text-text">strikes parten la recta de S</span> en tramos, y en cada
+            tramo el payoff es lineal. Estas son las tablas de <span className="text-brass">payoff
+            bruto</span> (sin restar la prima) de las estrategias del programa —el neto se obtiene
+            restando el débito o sumando el crédito de la prima neta.
+          </p>
+          <Note kind="key">
+            En el examen conviene armar esta tabla pata por pata: para cada rango, escribís el
+            valor intrínseco de cada opción (0 si está OTM) y sumás. El total constante marca dónde
+            el payoff está <span className="text-text">capado</span>; donde depende de{" "}
+            <K tex={"S_T"} />, la posición tiene dirección.
+          </Note>
+          <PayoffByRange />
+        </Section>
 
         <Section id="fundamentos" title="La aritmética de un combo">
           <p>
