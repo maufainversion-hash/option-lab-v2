@@ -74,6 +74,97 @@ export function maxProfitLoss(s: Strategy, sRange: number[]): { maxProfit: numbe
   return { maxProfit: Math.max(...payoff), maxLoss: Math.min(...payoff) };
 }
 
+// ── Desglose del payoff por rango (estilo machete de Hull) ─────────────────
+function fmtNum(n: number): string {
+  const r = Math.round(n * 100) / 100;
+  return Number.isInteger(r) ? String(r) : r.toFixed(2);
+}
+
+/** Encabezado descriptivo de una pata: "Long put 105", "Short call 110", "2× short call 100", "Acción". */
+export function legHeader(leg: Leg): string {
+  if (leg.optionType === "stock") return leg.quantity === 1 ? "Acción" : `${fmtNum(leg.quantity)}× acción`;
+  const dir = leg.quantity > 0 ? "Long" : "Short";
+  const mag = Math.abs(leg.quantity) === 1 ? "" : `${Math.abs(leg.quantity)}× `;
+  return `${mag}${dir} ${leg.optionType} ${fmtNum(leg.strike)}`;
+}
+
+/** Expresión del payoff BRUTO de una pata en el rango que contiene a repS (con "S" = S_T). */
+function legCell(leg: Leg, repS: number): string {
+  const q = leg.quantity;
+  if (leg.optionType === "stock") return q === 1 ? "S" : `${fmtNum(q)}·S`;
+  const K = fmtNum(leg.strike);
+  const itm = leg.optionType === "call" ? repS > leg.strike : repS < leg.strike;
+  if (!itm) return "0";
+  const base = leg.optionType === "call" ? `S − ${K}` : `${K} − S`;
+  if (q === 1) return base;
+  if (q === -1) return `−(${base})`;
+  if (q > 1) return `${q}(${base})`;
+  return `−${Math.abs(q)}(${base})`;
+}
+
+/** Pendiente e intercepto del payoff bruto de una pata en el rango. */
+function legSlope(leg: Leg, repS: number): [number, number] {
+  const q = leg.quantity;
+  if (leg.optionType === "stock") return [q, 0];
+  if (leg.optionType === "call") return repS > leg.strike ? [q, -q * leg.strike] : [0, 0];
+  return repS < leg.strike ? [-q, q * leg.strike] : [0, 0];
+}
+
+function linExpr(m: number, b: number): string {
+  const mm = Math.round(m * 100) / 100;
+  const bb = Math.round(b * 100) / 100;
+  if (mm === 0) return fmtNum(bb);
+  if (mm === 1) return bb === 0 ? "S" : bb > 0 ? `S + ${fmtNum(bb)}` : `S − ${fmtNum(-bb)}`;
+  if (mm === -1) return bb === 0 ? "−S" : bb > 0 ? `${fmtNum(bb)} − S` : `−S − ${fmtNum(-bb)}`;
+  let s = `${fmtNum(mm)}·S`;
+  if (Math.abs(bb) > 1e-9) s += bb > 0 ? ` + ${fmtNum(bb)}` : ` − ${fmtNum(-bb)}`;
+  return s;
+}
+
+export interface RangeBreakdown {
+  headers: string[]; // una por pata
+  rows: { range: string; cells: string[]; total: string }[];
+}
+
+/**
+ * Desglosa el payoff BRUTO al vencimiento por tramos de S_T (los strikes parten la recta).
+ * Para cada rango, da la expresión de cada pata y el total simplificado. Estilo Hull.
+ */
+export function rangeBreakdown(s: Strategy): RangeBreakdown {
+  const headers = s.legs.map(legHeader);
+  const strikes = [...new Set(s.legs.filter((l) => l.optionType !== "stock").map((l) => l.strike))].sort(
+    (a, b) => a - b,
+  );
+
+  const reps: { range: string; repS: number }[] = [];
+  if (strikes.length === 0) {
+    reps.push({ range: "todo S", repS: 1 });
+  } else {
+    reps.push({ range: `S ≤ ${fmtNum(strikes[0])}`, repS: strikes[0] - 1 });
+    for (let i = 0; i < strikes.length - 1; i++) {
+      reps.push({
+        range: `${fmtNum(strikes[i])} ≤ S ≤ ${fmtNum(strikes[i + 1])}`,
+        repS: (strikes[i] + strikes[i + 1]) / 2,
+      });
+    }
+    reps.push({ range: `S ≥ ${fmtNum(strikes[strikes.length - 1])}`, repS: strikes[strikes.length - 1] + 1 });
+  }
+
+  const rows = reps.map(({ range, repS }) => {
+    const cells = s.legs.map((leg) => legCell(leg, repS));
+    let m = 0;
+    let b = 0;
+    for (const leg of s.legs) {
+      const [lm, lb] = legSlope(leg, repS);
+      m += lm;
+      b += lb;
+    }
+    return { range, cells, total: linExpr(m, b) };
+  });
+
+  return { headers, rows };
+}
+
 // ── Constructores clásicos ────────────────────────────────────────────────
 export function longCall(K: number, T: number, premium: number, qty = 1): Strategy {
   return {

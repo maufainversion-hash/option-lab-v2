@@ -25,6 +25,7 @@ import {
   longButterfly,
   ironCondor,
   collar,
+  rangeBreakdown,
   type Strategy,
   type Leg,
 } from "@/lib/quant";
@@ -57,29 +58,68 @@ const STRATS: { value: StratKey; label: string }[] = [
   { value: "collar", label: "Collar" },
 ];
 
-const USE_NOTE: Record<StratKey, string> = {
-  longCall:
-    "Cuando esperás una suba marcada del subyacente y querés apalancamiento con pérdida acotada al premium pagado.",
-  longPut:
-    "Cuando esperás una caída o querés cubrir una posición larga. La pérdida máxima es el premium.",
-  coveredCall:
-    "Tenés la acción y querés generar income vendiendo el alza por encima de K. Ideal en mercados laterales o levemente alcistas.",
-  protectivePut:
-    "Tenés la acción y querés un seguro contra caídas. El put fija un piso a costa del premium.",
-  bullCall:
-    "Visión alcista moderada: querés exposición al alza pero abaratando el premium resignando la ganancia por encima de Khigh.",
-  bearPut:
-    "Visión bajista moderada con riesgo y costo capados. Ganás si el subyacente cae hacia el strike inferior.",
-  straddle:
-    "Esperás un movimiento grande pero no sabés la dirección (earnings, eventos). Ganás con la volatilidad realizada.",
-  strangle:
-    "Igual que el straddle pero más barato: necesitás un movimiento aún mayor para compensar el menor costo.",
-  butterfly:
-    "Apostás a que el subyacente termina cerca de Kmid con baja volatilidad. Riesgo y ganancia muy acotados.",
-  ironCondor:
-    "Cobrás prima apostando a que el subyacente queda dentro de un rango. Crédito neto con pérdida limitada en los extremos.",
-  collar:
-    "Tenés la acción y armás un bracket de bajo costo: el call short financia el put que pone el piso.",
+interface UseInfo {
+  view: string; // visión de mercado
+  cost: string; // débito / crédito
+  text: string; // explicación de para qué usarla
+}
+
+const USE_NOTE: Record<StratKey, UseInfo> = {
+  longCall: {
+    view: "Alcista fuerte",
+    cost: "Débito",
+    text: "Comprás un call cuando esperás una suba marcada y querés apalancamiento: una opción se mueve mucho más que la acción por dólar invertido. La pérdida está acotada al premium pagado y la ganancia es teóricamente ilimitada. Tu enemigo es el paso del tiempo (theta) si la suba no llega.",
+  },
+  longPut: {
+    view: "Bajista",
+    cost: "Débito",
+    text: "Comprás un put para apostar a una caída o para asegurar una posición larga (es el 'seguro' del subyacente). La pérdida máxima es el premium; la ganancia crece a medida que el subyacente cae hacia cero. Sube de valor también si se dispara la volatilidad.",
+  },
+  coveredCall: {
+    view: "Lateral / levemente alcista",
+    cost: "Crédito (cobrás el call)",
+    text: "Tenés la acción y vendés un call OTM para generar income con el premium. Funciona mejor en mercados laterales o de suba suave: cobrás la prima y solo resignás el alza por encima de K. Si el subyacente sube fuerte te 'callean' la acción a K (ganancia tope), y si cae, el premium solo amortigua parte de la baja.",
+  },
+  protectivePut: {
+    view: "Alcista pero querés seguro",
+    cost: "Débito (pagás el put)",
+    text: "Tenés la acción y comprás un put como seguro contra caídas: fija un piso en K a cambio del premium. Mantenés todo el potencial alcista (menos el costo del put) pero limitás la pérdida por debajo de K. Es la cobertura clásica de un portafolio largo.",
+  },
+  bullCall: {
+    view: "Alcista moderado",
+    cost: "Débito (acotado)",
+    text: "Long call en Klow + short call en Khigh. Abaratás el premium del call comprado vendiendo otro más OTM, a cambio de resignar la ganancia por encima de Khigh. Riesgo y ganancia quedan capados: ideal cuando ves una suba pero limitada. Ganás si el subyacente sube hacia Khigh.",
+  },
+  bearPut: {
+    view: "Bajista moderado",
+    cost: "Débito (acotado)",
+    text: "Long put en Khigh + short put en Klow. La versión bajista del bull call spread: apostás a una caída pero con riesgo y costo capados. Ganancia máxima = (Khigh − Klow) − costo neto, si el subyacente termina en Klow o por debajo.",
+  },
+  straddle: {
+    view: "Movimiento grande (cualquier lado)",
+    cost: "Débito (caro)",
+    text: "Long call + long put en el mismo strike ATM. Apostás a un movimiento grande sin saber la dirección (earnings, datos, eventos). Ganás si el subyacente se mueve más que la suma de ambos premiums. Te pega en contra el time decay y una caída de volatilidad.",
+  },
+  strangle: {
+    view: "Movimiento muy grande (cualquier lado)",
+    cost: "Débito (más barato que el straddle)",
+    text: "Long put OTM + long call OTM. Es un straddle más barato porque los strikes están fuera del dinero, pero necesitás un movimiento aún mayor para entrar en ganancia. Misma idea: largo de volatilidad, sin apuesta direccional.",
+  },
+  butterfly: {
+    view: "Lateral / baja volatilidad",
+    cost: "Débito (chico)",
+    text: "Long call Klow + 2× short call Kmid + long call Khigh (strikes equidistantes). Apostás a que el subyacente termina clavado cerca de Kmid. Riesgo y ganancia muy acotados y baratos: ganancia máxima en Kmid, pérdida máxima (el débito) en las alas.",
+  },
+  ironCondor: {
+    view: "Lateral / rango",
+    cost: "Crédito",
+    text: "Short put spread + short call spread: cobrás prima apostando a que el subyacente queda dentro de un rango. Crédito neto con pérdida limitada en los extremos. Es la estrategia de 'vender volatilidad' por excelencia cuando esperás un mercado quieto.",
+  },
+  collar: {
+    view: "Proteger una posición larga",
+    cost: "Crédito o costo ~cero",
+    text: "Acción + long put (piso) + short call (techo). El call vendido financia el put comprado, así que el seguro sale barato o gratis. A cambio resignás el alza por encima del call. Bracket clásico para proteger ganancias acumuladas en una acción.",
+  },
 };
 
 const LEG_LABEL: Record<Leg["optionType"], string> = {
@@ -179,6 +219,7 @@ export default function StrategiesLab() {
     [strategy, sRange],
   );
   const net = useMemo(() => netPremium(strategy), [strategy]);
+  const breakdown = useMemo(() => rangeBreakdown(strategy), [strategy]);
 
   const vLines = useMemo(
     () => [
@@ -318,8 +359,63 @@ export default function StrategiesLab() {
           </div>
         </Panel>
 
-        <Panel title="Cuándo usarla">
-          <p className="text-[14px] leading-relaxed text-muted">{USE_NOTE[strat]}</p>
+        <Panel title="Desglose del payoff por rango">
+          <p className="mb-4 max-w-2xl text-[13px] leading-relaxed text-muted">
+            Cómo paga cada pata según dónde termine el subyacente <span className="readout text-text">S</span> al
+            vencimiento. Los <span className="text-text">strikes parten la recta</span> en tramos; en cada uno el
+            payoff es lineal. Es el <span className="text-brass">payoff bruto</span> (sin restar la prima): el neto =
+            bruto {net >= 0 ? "−" : "+"} <span className="readout">{money(Math.abs(net))}</span> de prima.
+          </p>
+          <div className="overflow-x-auto rounded-lg border border-line">
+            <table className="w-full min-w-[520px] text-left text-[13px]">
+              <thead>
+                <tr className="border-b border-line bg-ink-2 text-dim">
+                  <th className="whitespace-nowrap px-3 py-2.5 font-medium">
+                    <span className="eyebrow text-[10px]">Rango de S</span>
+                  </th>
+                  {breakdown.headers.map((h, i) => (
+                    <th key={i} className="whitespace-nowrap px-3 py-2.5 text-right font-medium">
+                      <span className="readout text-[11px] text-muted">{h}</span>
+                    </th>
+                  ))}
+                  <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium">
+                    <span className="eyebrow text-[10px] text-brass">Payoff total</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {breakdown.rows.map((row, i) => (
+                  <tr key={i} className="border-b border-line/60 last:border-0">
+                    <td className="readout whitespace-nowrap px-3 py-2.5 text-text">{row.range}</td>
+                    {row.cells.map((c, j) => (
+                      <td key={j} className="readout px-3 py-2.5 text-right text-muted">{c}</td>
+                    ))}
+                    <td className="readout px-3 py-2.5 text-right font-semibold text-brass">{row.total}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-3 text-[12px] leading-relaxed text-dim">
+            Leé cada celda como el valor de esa pata en ese tramo (con <span className="readout">S</span> = S al
+            vencimiento). Donde el total es constante, el payoff está <span className="text-text">capado</span>; donde
+            depende de <span className="readout">S</span>, la posición tiene dirección.
+          </p>
+        </Panel>
+
+        <Panel title="¿Para qué usarla?">
+          <div className="mb-3 flex flex-wrap gap-2">
+            <span className="chip">
+              <span className="text-dim">visión</span>&nbsp;<span className="text-text">{USE_NOTE[strat].view}</span>
+            </span>
+            <span className="chip">
+              <span className="text-dim">flujo</span>&nbsp;
+              <span className={USE_NOTE[strat].cost.toLowerCase().includes("crédito") ? "text-gain" : "text-text"}>
+                {USE_NOTE[strat].cost}
+              </span>
+            </span>
+          </div>
+          <p className="text-[14px] leading-relaxed text-muted">{USE_NOTE[strat].text}</p>
         </Panel>
       </LabLayout>
     </div>
