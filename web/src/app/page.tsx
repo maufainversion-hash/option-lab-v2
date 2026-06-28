@@ -51,6 +51,13 @@ const LABS = [
     blurb: "Apuntes, fórmulas y el machete completo del curso, mapeado capítulo por capítulo.",
     hull: "Hull 1 · 19",
   },
+  {
+    href: "/repaso",
+    n: "08",
+    title: "Repaso para el parcial",
+    blurb: "Flashcards de fórmulas con recall activo y ejercicios resueltos paso a paso, al estilo Hull.",
+    hull: "Flashcards · Ejercicios",
+  },
 ];
 
 const STATS = [

@@ -11,6 +11,7 @@ const LINKS = [
   { href: "/binomial", label: "Binomial" },
   { href: "/mercado", label: "Mercado" },
   { href: "/learn", label: "Teoría" },
+  { href: "/repaso", label: "Repaso" },
 ];
 
 export function Nav() {
