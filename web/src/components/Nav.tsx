@@ -9,6 +9,7 @@ const LINKS = [
   { href: "/strategies", label: "Estrategias" },
   { href: "/montecarlo", label: "Monte Carlo" },
   { href: "/binomial", label: "Binomial" },
+  { href: "/mercado", label: "Mercado" },
   { href: "/learn", label: "Teoría" },
 ];
 

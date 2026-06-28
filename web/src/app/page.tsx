@@ -38,8 +38,15 @@ const LABS = [
     hull: "Hull 10 · 11",
   },
   {
-    href: "/learn",
+    href: "/mercado",
     n: "06",
+    title: "Mercado en vivo",
+    blurb: "Chains reales de Yahoo y el smile de volatilidad implícita recalculado por el motor. Servido por el backend.",
+    hull: "yfinance · API",
+  },
+  {
+    href: "/learn",
+    n: "07",
     title: "Teoría (Hull)",
     blurb: "Apuntes, fórmulas y el machete completo del curso, mapeado capítulo por capítulo.",
     hull: "Hull 1 · 19",
