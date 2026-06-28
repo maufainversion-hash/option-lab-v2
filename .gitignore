@@ -1,32 +1,33 @@
-# Python
+# ── Python (api/) ─────────────────────────────
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-*.egg
 *.egg-info/
-dist/
-build/
 .pytest_cache/
 .coverage
-htmlcov/
-
-# Streamlit
-.streamlit/secrets.toml
-
-# Virtual env
-venv/
 .venv/
+venv/
 env/
 
-# IDE
+# ── Node / Next (web/) ────────────────────────
+node_modules/
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+
+# ── Env / secrets ─────────────────────────────
+.env
+.env.*
+!.env.example
+.vercel
+
+# ── Editor / OS ───────────────────────────────
 .vscode/
 .idea/
-*.swp
 .DS_Store
+*.swp
 
-# Data
-*.csv
-*.parquet
+# ── Data cache ────────────────────────────────
 data/cache/
