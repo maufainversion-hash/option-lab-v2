@@ -136,6 +136,20 @@ const SUMMARY: Record<StratKey, string> = {
   collar: "proteger ganancias de una acción casi sin costo",
 };
 
+const MAXDESC: Record<StratKey, { gain: string; loss: string }> = {
+  longCall: { gain: "ilimitada (sube con el spot)", loss: "la prima pagada" },
+  longPut: { gain: "K − prima (máx si S→0)", loss: "la prima pagada" },
+  coveredCall: { gain: "(K − S₀) + prima", loss: "S₀ − prima (si S→0)" },
+  protectivePut: { gain: "ilimitada (acción − costo del put)", loss: "S₀ − K + prima" },
+  bullCall: { gain: "(K_alto − K_bajo) − costo neto", loss: "el costo neto (débito)" },
+  bearPut: { gain: "(K_alto − K_bajo) − costo neto", loss: "el costo neto (débito)" },
+  straddle: { gain: "ilimitada al alza", loss: "la suma de las dos primas" },
+  strangle: { gain: "ilimitada al alza", loss: "la suma de las dos primas" },
+  butterfly: { gain: "(K_mid − K_bajo) − costo neto", loss: "el costo neto (débito)" },
+  ironCondor: { gain: "el crédito neto cobrado", loss: "ancho del spread − crédito" },
+  collar: { gain: "K_call − S₀ (− costo)", loss: "S₀ − K_put (− crédito)" },
+};
+
 type RiskKind = "Limitada" | "Ilimitada";
 const RISK: Record<StratKey, { profit: RiskKind; loss: RiskKind }> = {
   longCall: { profit: "Ilimitada", loss: "Limitada" },
@@ -397,13 +411,13 @@ export default function StrategiesLab() {
               label="Máx ganancia"
               value={RISK[strat].profit === "Ilimitada" ? "Ilimitada" : money(maxProfit)}
               tone="gain"
-              hint={RISK[strat].profit === "Ilimitada" ? "sin techo" : "acotada"}
+              hint={MAXDESC[strat].gain}
             />
             <Stat
               label="Máx pérdida"
               value={RISK[strat].loss === "Ilimitada" ? "Ilimitada" : money(maxLoss)}
               tone="loss"
-              hint={RISK[strat].loss === "Ilimitada" ? "sin piso" : "acotada"}
+              hint={MAXDESC[strat].loss}
             />
             <Stat label="Patas" value={String(strategy.legs.length)} tone="cyan" />
           </div>
