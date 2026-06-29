@@ -256,23 +256,20 @@ export default function StrategiesLab() {
     const expiry = payoffAtExpiry(strategy, sRange);
     const today = pnlAtTime(strategy, sRange, 0, r, sigma);
     return [
-      {
-        x: sRange,
-        y: expiry,
-        color: COLORS.brass,
-        label: "P&L al vencimiento",
-        fillToZero: true,
-        fillColor: COLORS.brass,
-      },
-      {
-        x: sRange,
-        y: today,
-        color: COLORS.cyan,
-        dash: "5 4",
-        label: "P&L hoy (BS)",
-      },
+      // zona de ganancia (verde) y de pérdida (rojo)
+      { x: sRange, y: expiry.map((p) => Math.max(p, 0)), color: COLORS.gain, fillToZero: true, fillColor: COLORS.gain, fillOpacity: 0.16, fillOnly: true },
+      { x: sRange, y: expiry.map((p) => Math.min(p, 0)), color: COLORS.loss, fillToZero: true, fillColor: COLORS.loss, fillOpacity: 0.16, fillOnly: true },
+      // línea de payoff al vencimiento
+      { x: sRange, y: expiry, color: COLORS.brass, label: "P&L al vencimiento", width: 2.5 },
+      // valor hoy (BS)
+      { x: sRange, y: today, color: COLORS.cyan, dash: "5 4", label: "P&L hoy (BS)" },
     ];
   }, [strategy, sRange, r, sigma]);
+
+  const strikes = useMemo(
+    () => [...new Set(strategy.legs.filter((l) => l.optionType !== "stock").map((l) => l.strike))].sort((a, b) => a - b),
+    [strategy],
+  );
 
   const bes = useMemo(() => breakevenPoints(strategy, sRange), [strategy, sRange]);
   const { maxProfit, maxLoss } = useMemo(
@@ -284,11 +281,23 @@ export default function StrategiesLab() {
 
   const vLines = useMemo(
     () => [
+      ...strikes.map((k) => ({ v: k, color: COLORS.dim, label: `K${k.toFixed(0)}` })),
+      ...bes.map((b) => ({ v: b, color: COLORS.muted, label: "BE", dash: "4 3" })),
       { v: S, color: "#eef2f5", label: "spot", dash: "2 2" },
-      ...bes.map((b) => ({ v: b, color: COLORS.muted, label: "BE" })),
     ],
-    [S, bes],
+    [S, bes, strikes],
   );
+
+  const hLines = useMemo(() => {
+    const out: { v: number; color?: string; label?: string; dash?: string }[] = [
+      { v: 0, color: COLORS.dim },
+    ];
+    if (RISK[strat].profit === "Limitada" && maxProfit > 0)
+      out.push({ v: maxProfit, color: COLORS.gain, label: `máx +$${maxProfit.toFixed(2)}`, dash: "2 4" });
+    if (RISK[strat].loss === "Limitada" && maxLoss < 0)
+      out.push({ v: maxLoss, color: COLORS.loss, label: `máx −$${Math.abs(maxLoss).toFixed(2)}`, dash: "2 4" });
+    return out;
+  }, [strat, maxProfit, maxLoss]);
 
   const money = (v: number) => `$${v.toFixed(2)}`;
   const signedMoney = (v: number) => `${v >= 0 ? "+" : "−"}$${Math.abs(v).toFixed(2)}`;
@@ -390,7 +399,7 @@ export default function StrategiesLab() {
           <LineChart
             series={series}
             vLines={vLines}
-            hLines={[{ v: 0, color: COLORS.dim }]}
+            hLines={hLines}
             xLabel="Spot al vencimiento"
             yLabel="P&L"
             height={400}

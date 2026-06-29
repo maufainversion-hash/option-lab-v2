@@ -11,6 +11,8 @@ export interface Series {
   label?: string;
   fillToZero?: boolean;
   fillColor?: string;
+  fillOpacity?: number;
+  fillOnly?: boolean; // renderiza solo el área (sin la línea ni leyenda ni hover)
 }
 
 interface RefLine {
@@ -111,7 +113,7 @@ export function LineChart({
   };
 
   const hoverPoints = hover
-    ? series.map((s) => {
+    ? series.filter((s) => !s.fillOnly).map((s) => {
         let best = 0;
         let bestD = Infinity;
         for (let i = 0; i < s.x.length; i++) {
@@ -149,7 +151,14 @@ export function LineChart({
 
         {/* ref lines */}
         {hLines.map((h, i) => (
-          <line key={`h${i}`} x1={M.l} x2={W - M.r} y1={sy(h.v)} y2={sy(h.v)} stroke={h.color ?? "#5d6875"} strokeWidth={1} strokeDasharray={h.dash ?? "4 4"} />
+          <g key={`h${i}`}>
+            <line x1={M.l} x2={W - M.r} y1={sy(h.v)} y2={sy(h.v)} stroke={h.color ?? "#5d6875"} strokeWidth={1} strokeDasharray={h.dash ?? "4 4"} />
+            {h.label && (
+              <text x={W - M.r - 4} y={sy(h.v) - 4} textAnchor="end" className="readout" fontSize={10} fill={h.color ?? "#97a3b2"}>
+                {h.label}
+              </text>
+            )}
+          </g>
         ))}
         {vLines.map((v, i) => (
           <g key={`v${i}`}>
@@ -165,12 +174,14 @@ export function LineChart({
         {/* areas + lines */}
         {series.map((s, i) =>
           s.fillToZero ? (
-            <path key={`a${i}`} d={area(s)} fill={s.fillColor ?? s.color} opacity={0.12} />
+            <path key={`a${i}`} d={area(s)} fill={s.fillColor ?? s.color} opacity={s.fillOpacity ?? 0.12} />
           ) : null,
         )}
-        {series.map((s, i) => (
-          <path key={`l${i}`} d={path(s)} fill="none" stroke={s.color} strokeWidth={s.width ?? 2.25} strokeDasharray={s.dash} strokeLinejoin="round" strokeLinecap="round" />
-        ))}
+        {series.map((s, i) =>
+          s.fillOnly ? null : (
+            <path key={`l${i}`} d={path(s)} fill="none" stroke={s.color} strokeWidth={s.width ?? 2.25} strokeDasharray={s.dash} strokeLinejoin="round" strokeLinecap="round" />
+          ),
+        )}
 
         {/* crosshair */}
         {hover && (
@@ -196,7 +207,7 @@ export function LineChart({
       {/* legend + hover readout */}
       <div className="mt-1 flex flex-wrap items-center justify-between gap-2 px-2">
         <div className="flex flex-wrap gap-x-4 gap-y-1">
-          {series.filter((s) => s.label).map((s, i) => (
+          {series.filter((s) => s.label && !s.fillOnly).map((s, i) => (
             <span key={i} className="flex items-center gap-1.5 text-[11px] text-muted">
               <span className="inline-block h-[3px] w-4 rounded" style={{ background: s.color }} />
               {s.label}
