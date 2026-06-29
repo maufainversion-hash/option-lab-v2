@@ -11,8 +11,6 @@ import {
   linspace,
   payoffAtExpiry,
   pnlAtTime,
-  breakevenPoints,
-  maxProfitLoss,
   netPremium,
   longCall,
   longPut,
@@ -25,6 +23,12 @@ import {
   longButterfly,
   ironCondor,
   collar,
+  protectiveCall,
+  bullPutSpread,
+  bearCallSpread,
+  strip,
+  strap,
+  calendarSpread,
   rangeBreakdown,
   composition,
   type Strategy,
@@ -37,12 +41,18 @@ type StratKey =
   | "longPut"
   | "coveredCall"
   | "protectivePut"
+  | "protectiveCall"
   | "bullCall"
+  | "bullPut"
   | "bearPut"
+  | "bearCall"
   | "straddle"
   | "strangle"
+  | "strip"
+  | "strap"
   | "butterfly"
   | "ironCondor"
+  | "calendar"
   | "collar";
 
 const STRATS: { value: StratKey; label: string }[] = [
@@ -50,12 +60,18 @@ const STRATS: { value: StratKey; label: string }[] = [
   { value: "longPut", label: "Long Put" },
   { value: "coveredCall", label: "Covered Call" },
   { value: "protectivePut", label: "Protective Put" },
+  { value: "protectiveCall", label: "Protective Call" },
   { value: "bullCall", label: "Bull Call Spread" },
+  { value: "bullPut", label: "Bull Put Spread" },
   { value: "bearPut", label: "Bear Put Spread" },
+  { value: "bearCall", label: "Bear Call Spread" },
   { value: "straddle", label: "Straddle" },
   { value: "strangle", label: "Strangle" },
+  { value: "strip", label: "Strip" },
+  { value: "strap", label: "Strap" },
   { value: "butterfly", label: "Butterfly" },
   { value: "ironCondor", label: "Iron Condor" },
+  { value: "calendar", label: "Calendar Spread" },
   { value: "collar", label: "Collar" },
 ];
 
@@ -121,6 +137,36 @@ const USE_NOTE: Record<StratKey, UseInfo> = {
     cost: "Crédito o costo ~cero",
     text: "Acción + long put (piso) + short call (techo). El call vendido financia el put comprado, así que el seguro sale barato o gratis. A cambio resignás el alza por encima del call. Bracket clásico para proteger ganancias acumuladas en una acción.",
   },
+  protectiveCall: {
+    view: "Cubrir un short",
+    cost: "Débito (pagás el call)",
+    text: "Short en acción + long call. El espejo del protective put: si estás corto y querés limitar la pérdida ante una suba, el call pone un techo en K. Mantenés la ganancia si el subyacente cae, menos el premium del call.",
+  },
+  bullPut: {
+    view: "Alcista moderado",
+    cost: "Crédito",
+    text: "Short put Khigh + long put Klow. Alcista en crédito: cobrás la prima y ganás si el subyacente se queda por encima de Khigh. Pérdida máxima = (Khigh − Klow) − crédito si cae por debajo de Klow. Es el espejo en crédito del bull call spread.",
+  },
+  bearCall: {
+    view: "Bajista moderado",
+    cost: "Crédito",
+    text: "Short call Klow + long call Khigh. Bajista en crédito: cobrás la prima y ganás si el subyacente queda por debajo de Klow. Pérdida máxima = (Khigh − Klow) − crédito. Espejo en crédito del bear put spread.",
+  },
+  strip: {
+    view: "Movimiento grande, sesgo bajista",
+    cost: "Débito",
+    text: "1 long call + 2 long puts, mismo strike. Como un straddle pero pesado al lado bajista: ganás con un movimiento grande en cualquier dirección, y el doble de puts hace que rinda más si cae. Pérdida máxima = el débito total (call + 2 puts).",
+  },
+  strap: {
+    view: "Movimiento grande, sesgo alcista",
+    cost: "Débito",
+    text: "2 long calls + 1 long put, mismo strike. Straddle cargado al alza: movimiento grande en cualquier dirección, pero rinde más si sube. Pérdida máxima = el débito total (2 calls + put).",
+  },
+  calendar: {
+    view: "Lateral cerca de K (vender theta)",
+    cost: "Débito",
+    text: "Short call cercano + long call lejano, mismo strike. Vendés el decay rápido de la opción corta y te quedás con la larga. Ganás si el subyacente queda cerca de K al vencer la corta. Ojo: las patas vencen en fechas distintas — el P&L mostrado es al vencimiento de la corta, con la larga revaluada por Black-Scholes.",
+  },
 };
 
 const SUMMARY: Record<StratKey, string> = {
@@ -135,6 +181,12 @@ const SUMMARY: Record<StratKey, string> = {
   butterfly: "que el subyacente quede clavado cerca de un precio (vol baja)",
   ironCondor: "cobrar prima si el subyacente queda dentro de un rango",
   collar: "proteger ganancias de una acción casi sin costo",
+  protectiveCall: "asegurar una posición corta (techo de pérdida en K)",
+  bullPut: "una suba con crédito: cobrás prima si no cae",
+  bearCall: "una baja con crédito: cobrás prima si no sube",
+  strip: "un movimiento grande con sesgo bajista",
+  strap: "un movimiento grande con sesgo alcista",
+  calendar: "cobrar el decay del corto plazo si el spot queda cerca de K",
 };
 
 const MAXDESC: Record<StratKey, { gain: string; loss: string }> = {
@@ -149,6 +201,12 @@ const MAXDESC: Record<StratKey, { gain: string; loss: string }> = {
   butterfly: { gain: "(K_mid − K_bajo) − costo neto", loss: "el costo neto (débito)" },
   ironCondor: { gain: "el crédito neto cobrado", loss: "ancho del spread − crédito" },
   collar: { gain: "K_call − S₀ (− costo)", loss: "S₀ − K_put (− crédito)" },
+  protectiveCall: { gain: "S₀ − prima (si S→0)", loss: "K − S₀ + prima (si S sube)" },
+  bullPut: { gain: "el crédito neto cobrado", loss: "(K_alto − K_bajo) − crédito" },
+  bearCall: { gain: "el crédito neto cobrado", loss: "(K_alto − K_bajo) − crédito" },
+  strip: { gain: "ilimitada (más fuerte a la baja)", loss: "el débito total (call + 2 puts)" },
+  strap: { gain: "ilimitada (más fuerte a la suba)", loss: "el débito total (2 calls + put)" },
+  calendar: { gain: "máx cerca de K al vencer la corta", loss: "el débito pagado" },
 };
 
 type RiskKind = "Limitada" | "Ilimitada";
@@ -164,6 +222,12 @@ const RISK: Record<StratKey, { profit: RiskKind; loss: RiskKind }> = {
   butterfly: { profit: "Limitada", loss: "Limitada" },
   ironCondor: { profit: "Limitada", loss: "Limitada" },
   collar: { profit: "Limitada", loss: "Limitada" },
+  protectiveCall: { profit: "Limitada", loss: "Limitada" },
+  bullPut: { profit: "Limitada", loss: "Limitada" },
+  bearCall: { profit: "Limitada", loss: "Limitada" },
+  strip: { profit: "Ilimitada", loss: "Limitada" },
+  strap: { profit: "Ilimitada", loss: "Limitada" },
+  calendar: { profit: "Limitada", loss: "Limitada" },
 };
 
 const LEG_LABEL: Record<Leg["optionType"], string> = {
@@ -171,6 +235,19 @@ const LEG_LABEL: Record<Leg["optionType"], string> = {
   put: "Put",
   stock: "Acción",
 };
+
+/** Puntos donde el P&L cruza cero (breakevens), por interpolación lineal. */
+function zeroCrossings(xs: number[], ys: number[]): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < xs.length - 1; i++) {
+    if (ys[i] === 0) out.push(xs[i]);
+    else if (ys[i] * ys[i + 1] < 0) {
+      const t = ys[i] / (ys[i] - ys[i + 1]);
+      out.push(xs[i] + t * (xs[i + 1] - xs[i]));
+    }
+  }
+  return out;
+}
 
 function RiskPill({ label, value, tone }: { label: string; value: string; tone: "good" | "bad" | "neutral" }) {
   const c =
@@ -248,35 +325,58 @@ export default function StrategiesLab() {
         );
       case "collar":
         return collar(S, lo10, hi10, T, p(lo10, "put"), p(hi10, "call"));
+      case "protectiveCall":
+        return protectiveCall(S, atm, T, p(atm, "call"));
+      case "bullPut":
+        return bullPutSpread(lo10, hi10, T, p(lo10, "put"), p(hi10, "put"));
+      case "bearCall":
+        return bearCallSpread(lo10, hi10, T, p(lo10, "call"), p(hi10, "call"));
+      case "strip":
+        return strip(atm, T, p(atm, "call"), p(atm, "put"));
+      case "strap":
+        return strap(atm, T, p(atm, "call"), p(atm, "put"));
+      case "calendar": {
+        const Tfar = T + 0.5;
+        return calendarSpread(
+          atm,
+          T,
+          Tfar,
+          bsPrice(S, atm, T, r, sigma, 0, "call"),
+          bsPrice(S, atm, Tfar, r, sigma, 0, "call"),
+        );
+      }
     }
   }, [strat, S, T, r, sigma]);
 
+  const isCalendar = strat === "calendar";
+
   const sRange = useMemo(() => linspace(S * 0.5, S * 1.5, 200), [S]);
 
-  const series = useMemo<Series[]>(() => {
-    const expiry = payoffAtExpiry(strategy, sRange);
-    const today = pnlAtTime(strategy, sRange, 0, r, sigma);
-    return [
-      // zona de ganancia (verde) y de pérdida (rojo)
+  // P&L "al vencimiento": para el calendar es al vencer la pata corta (la larga se revalúa por BS).
+  const expiry = useMemo(
+    () => (isCalendar ? pnlAtTime(strategy, sRange, T, r, sigma) : payoffAtExpiry(strategy, sRange)),
+    [strategy, sRange, isCalendar, T, r, sigma],
+  );
+  const today = useMemo(() => pnlAtTime(strategy, sRange, 0, r, sigma), [strategy, sRange, r, sigma]);
+
+  const series = useMemo<Series[]>(
+    () => [
       { x: sRange, y: expiry.map((p) => Math.max(p, 0)), color: COLORS.gain, fillToZero: true, fillColor: COLORS.gain, fillOpacity: 0.16, fillOnly: true },
       { x: sRange, y: expiry.map((p) => Math.min(p, 0)), color: COLORS.loss, fillToZero: true, fillColor: COLORS.loss, fillOpacity: 0.16, fillOnly: true },
-      // línea de payoff al vencimiento
-      { x: sRange, y: expiry, color: COLORS.brass, label: "P&L al vencimiento", width: 2.5 },
-      // valor hoy (BS)
+      { x: sRange, y: expiry, color: COLORS.brass, label: isCalendar ? "P&L al vencer la corta" : "P&L al vencimiento", width: 2.5 },
       { x: sRange, y: today, color: COLORS.cyan, dash: "5 4", label: "P&L hoy (BS)" },
-    ];
-  }, [strategy, sRange, r, sigma]);
+    ],
+    [sRange, expiry, today, isCalendar],
+  );
 
   const strikes = useMemo(
     () => [...new Set(strategy.legs.filter((l) => l.optionType !== "stock").map((l) => l.strike))].sort((a, b) => a - b),
     [strategy],
   );
 
-  const bes = useMemo(() => breakevenPoints(strategy, sRange), [strategy, sRange]);
-  const { maxProfit, maxLoss } = useMemo(
-    () => maxProfitLoss(strategy, sRange),
-    [strategy, sRange],
-  );
+  const bes = useMemo(() => zeroCrossings(sRange, expiry), [sRange, expiry]);
+  const maxProfit = useMemo(() => Math.max(...expiry), [expiry]);
+  const maxLoss = useMemo(() => Math.min(...expiry), [expiry]);
   const net = useMemo(() => netPremium(strategy), [strategy]);
   const breakdown = useMemo(() => rangeBreakdown(strategy), [strategy]);
 
@@ -473,6 +573,15 @@ export default function StrategiesLab() {
         </Panel>
 
         <Panel title="Desglose del payoff por rango">
+          {isCalendar ? (
+            <p className="max-w-2xl text-[14px] leading-relaxed text-muted">
+              El calendar spread tiene patas con <span className="text-text">vencimientos distintos</span>, así que el
+              desglose lineal por tramos no aplica: cuando vence la pata corta, la larga todavía tiene valor temporal.
+              Por eso el P&L toma forma de <span className="text-text">carpa</span> (lo ves en el diagrama de arriba), con
+              el máximo cerca de <span className="readout text-text">K</span>.
+            </p>
+          ) : (
+          <>
           <p className="mb-4 max-w-2xl text-[13px] leading-relaxed text-muted">
             Cómo paga cada pata según dónde termine el subyacente <span className="readout text-text">S</span> al
             vencimiento. Los <span className="text-text">strikes parten la recta</span> en tramos; en cada uno el
@@ -514,6 +623,8 @@ export default function StrategiesLab() {
             vencimiento). Donde el total es constante, el payoff está <span className="text-text">capado</span>; donde
             depende de <span className="readout">S</span>, la posición tiene dirección.
           </p>
+          </>
+          )}
         </Panel>
 
         <Panel title="¿Para qué usarla?">

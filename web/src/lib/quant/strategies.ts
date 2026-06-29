@@ -287,3 +287,63 @@ export function collar(S: number, Kput: number, Kcall: number, T: number, putPre
     description: "Acción + put (piso) + call short (techo). Bracket de bajo costo.",
   };
 }
+export function protectiveCall(S: number, K: number, T: number, callPrem: number): Strategy {
+  return {
+    name: `Protective Call K=${K.toFixed(0)}`,
+    legs: [
+      { optionType: "stock", quantity: -1, strike: 0, expiry: 0, premium: S },
+      { optionType: "call", quantity: 1, strike: K, expiry: T, premium: callPrem },
+    ],
+    description: "Short en acción + long call. Seguro de una posición corta: techo de pérdida en K.",
+  };
+}
+export function bullPutSpread(Klow: number, Khigh: number, T: number, pLow: number, pHigh: number): Strategy {
+  return {
+    name: `Bull Put Spread ${Khigh.toFixed(0)}/${Klow.toFixed(0)}`,
+    legs: [
+      { optionType: "put", quantity: -1, strike: Khigh, expiry: T, premium: pHigh },
+      { optionType: "put", quantity: 1, strike: Klow, expiry: T, premium: pLow },
+    ],
+    description: "Short put Khigh + long put Klow. Alcista con crédito neto y riesgo capado.",
+  };
+}
+export function bearCallSpread(Klow: number, Khigh: number, T: number, pLow: number, pHigh: number): Strategy {
+  return {
+    name: `Bear Call Spread ${Klow.toFixed(0)}/${Khigh.toFixed(0)}`,
+    legs: [
+      { optionType: "call", quantity: -1, strike: Klow, expiry: T, premium: pLow },
+      { optionType: "call", quantity: 1, strike: Khigh, expiry: T, premium: pHigh },
+    ],
+    description: "Short call Klow + long call Khigh. Bajista con crédito neto y riesgo capado.",
+  };
+}
+export function strip(K: number, T: number, callPrem: number, putPrem: number): Strategy {
+  return {
+    name: `Strip K=${K.toFixed(0)}`,
+    legs: [
+      { optionType: "call", quantity: 1, strike: K, expiry: T, premium: callPrem },
+      { optionType: "put", quantity: 2, strike: K, expiry: T, premium: putPrem },
+    ],
+    description: "1 call + 2 puts mismo strike. Movimiento grande con sesgo bajista (gana más a la baja).",
+  };
+}
+export function strap(K: number, T: number, callPrem: number, putPrem: number): Strategy {
+  return {
+    name: `Strap K=${K.toFixed(0)}`,
+    legs: [
+      { optionType: "call", quantity: 2, strike: K, expiry: T, premium: callPrem },
+      { optionType: "put", quantity: 1, strike: K, expiry: T, premium: putPrem },
+    ],
+    description: "2 calls + 1 put mismo strike. Movimiento grande con sesgo alcista (gana más a la suba).",
+  };
+}
+export function calendarSpread(K: number, Tnear: number, Tfar: number, premNear: number, premFar: number): Strategy {
+  return {
+    name: `Calendar Spread K=${K.toFixed(0)}`,
+    legs: [
+      { optionType: "call", quantity: -1, strike: K, expiry: Tnear, premium: premNear },
+      { optionType: "call", quantity: 1, strike: K, expiry: Tfar, premium: premFar },
+    ],
+    description: "Short call cercano + long call lejano (mismo strike). Vende theta del corto plazo.",
+  };
+}
