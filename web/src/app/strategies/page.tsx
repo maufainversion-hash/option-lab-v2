@@ -26,6 +26,7 @@ import {
   ironCondor,
   collar,
   rangeBreakdown,
+  composition,
   type Strategy,
   type Leg,
 } from "@/lib/quant";
@@ -366,6 +367,9 @@ export default function StrategiesLab() {
             <div className="eyebrow mb-1 text-brass">Sirve para</div>
             <p className="font-display text-[19px] font-medium leading-snug text-text">
               {SUMMARY[strat]}.
+            </p>
+            <p className="readout mt-2 text-[12px] text-muted">
+              <span className="text-dim">Formado por:</span> {composition(strategy)}
             </p>
           </div>
           <div className="flex shrink-0 flex-col gap-2">

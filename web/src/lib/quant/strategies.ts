@@ -88,6 +88,19 @@ export function legHeader(leg: Leg): string {
   return `${mag}${dir} ${leg.optionType} ${fmtNum(leg.strike)}`;
 }
 
+/** Descripción de las patas en lenguaje claro, ej. "Long call + short call", "Acción + 2× short call + long call". */
+export function composition(s: Strategy): string {
+  const parts = s.legs.map((leg) => {
+    const mag = Math.abs(leg.quantity);
+    const prefix = mag === 1 ? "" : `${mag}× `;
+    if (leg.optionType === "stock") return `${prefix}acción`;
+    const dir = leg.quantity > 0 ? "long" : "short";
+    return `${prefix}${dir} ${leg.optionType}`;
+  });
+  const joined = parts.join(" + ");
+  return joined.charAt(0).toUpperCase() + joined.slice(1);
+}
+
 /** Expresión del payoff BRUTO de una pata en el rango que contiene a repS (con "S" = S_T). */
 function legCell(leg: Leg, repS: number): string {
   const q = leg.quantity;
